@@ -49,14 +49,13 @@ pipeline {
             }
         }
         
-        stage('Deploy') {
+       stage('Deploy') {
             steps {
                 script {
                     docker.withRegistry("${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
                         sh """
-                            export DOCKER_REGISTRY='' 
-                            export APP_IMAGE=${env.APP_IMAGE}
-                            export IMAGE_TAG=${env.IMAGE_TAG}
+                            export APP_IMAGE="${env.APP_IMAGE}"
+                            export IMAGE_TAG="${env.IMAGE_TAG}"
                             docker-compose down
                             docker-compose up -d
                         """
