@@ -4,9 +4,10 @@ pipeline {
     environment {
         APP_NAME = 'task-tracker'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_REGISTRY = 'registry.your-private-domain.com'
+        DOCKER_REGISTRY = 'registry.your-private-domain.com' // CHANGE THIS
         DOCKER_CREDS_ID = 'dockerhub'
         GITHUB_CREDS_ID = 'github'
+        GITHUB_REPO_URL = '' // CHANGE THIS
         SLACK_CHANNEL = '#devops-alerts'
         LAST_SUCCESS_FILE = "/tmp/${APP_NAME}_last_success.txt"
     }
@@ -18,7 +19,8 @@ pipeline {
     stages {
         stage('SCM Pull') {
             steps {
-                git branch: 'main', credentialsId: "${GITHUB_CREDS_ID}", url: "${GITHUB_REPO_URL}"
+                // Fixed: Added env. prefix
+                git branch: 'main', credentialsId: "${env.GITHUB_CREDS_ID}", url: "${env.GITHUB_REPO_URL}"
             }
         }
         
@@ -32,8 +34,9 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDS_ID}") {
-                        def customImage = docker.build("${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}", "--build-arg BUILDKIT_INLINE_CACHE=1 .")
+                    // Fixed: Added env. prefix
+                    docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
+                        def customImage = docker.build("${env.DOCKER_REGISTRY}/${env.APP_NAME}:${env.IMAGE_TAG}", "--build-arg BUILDKIT_INLINE_CACHE=1 .")
                         customImage.push()
                         customImage.push("latest") 
                     }
@@ -44,10 +47,11 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDS_ID}") {
+                    // Fixed: Added env. prefix
+                    docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
                         sh """
-                            export DOCKER_REGISTRY=${DOCKER_REGISTRY}
-                            export IMAGE_TAG=${IMAGE_TAG}
+                            export DOCKER_REGISTRY=${env.DOCKER_REGISTRY}
+                            export IMAGE_TAG=${env.IMAGE_TAG}
                             docker-compose down
                             docker-compose up -d
                         """
@@ -84,28 +88,27 @@ pipeline {
     post {
         success {
             script {
-                sh "echo ${IMAGE_TAG} > ${LAST_SUCCESS_FILE}"
+                sh "echo ${env.IMAGE_TAG} > ${env.LAST_SUCCESS_FILE}"
             }
-            // Removed the space between slackSend and '('
-            slackSend(channel: "${SLACK_CHANNEL}", color: 'good', message: "✅ SUCCESS: Build #${BUILD_NUMBER} of ${APP_NAME} deployed successfully.\nView: ${env.BUILD_URL}")
+            slackSend(channel: "${env.SLACK_CHANNEL}", color: 'good', message: "✅ SUCCESS: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} deployed successfully.\nView: ${env.BUILD_URL}")
         }
         failure {
             script {
                 echo "Deployment failed. Initiating Rollback..."
-                def prevTag = sh(script: "cat ${LAST_SUCCESS_FILE} || echo 'latest'", returnStdout: true).trim()
+                def prevTag = sh(script: "cat ${env.LAST_SUCCESS_FILE} || echo 'latest'", returnStdout: true).trim()
                 
                 echo "Rolling back to tag: ${prevTag}"
                 
-                docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDS_ID}") {
+                docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
                     sh """
-                        export DOCKER_REGISTRY=${DOCKER_REGISTRY}
+                        export DOCKER_REGISTRY=${env.DOCKER_REGISTRY}
                         export IMAGE_TAG=${prevTag}
                         docker-compose down
                         docker-compose up -d
                     """
                 }
             }
-            slackSend(channel: "${SLACK_CHANNEL}", color: 'danger', message: "🚨 FAILURE: Build #${BUILD_NUMBER} of ${APP_NAME} failed. Rolled back to previous stable state.\nView: ${env.BUILD_URL}")
+            slackSend(channel: "${env.SLACK_CHANNEL}", color: 'danger', message: "🚨 FAILURE: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} failed. Rolled back to previous stable state.\nView: ${env.BUILD_URL}")
         }
         always {
             cleanWs()
