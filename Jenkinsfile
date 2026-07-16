@@ -1,13 +1,16 @@
 pipeline {
     agent any
     
-    environment {
+   environment {
         APP_NAME = 'task-tracker'
         IMAGE_TAG = "${BUILD_NUMBER}"
         
         // Docker Hub Setup
         DOCKER_REGISTRY = 'https://index.docker.io/v1/' 
-        APP_IMAGE = "dockerhub/${APP_NAME}" 
+        
+        // FIX: Change 'dockerhub' to your actual username 'likithc'
+        APP_IMAGE = "likithc/${APP_NAME}" 
+        
         DOCKER_CREDS_ID = 'dockerhub' 
         
         SLACK_CHANNEL = '#devops-alerts'
