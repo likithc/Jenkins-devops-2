@@ -1,14 +1,15 @@
 pipeline {
     agent any
     
-    environment {
+   environment {
         APP_NAME = 'task-tracker'
         IMAGE_TAG = "${BUILD_NUMBER}"
         
-        // Docker Hub Setup
         DOCKER_REGISTRY = 'https://index.docker.io/v1/' 
-        APP_IMAGE = "likithc/${APP_NAME}" 
-        DOCKER_CREDS_ID = 'private-docker-registry-creds'
+        APP_IMAGE = "dockerhub/${APP_NAME}" 
+        
+        // Change the value inside the quotes to match your actual Jenkins Credential ID!
+        DOCKER_CREDS_ID = 'dockerhub' 
         
         SLACK_CHANNEL = '#devops-alerts'
         LAST_SUCCESS_FILE = "/tmp/${APP_NAME}_last_success.txt"
