@@ -21,16 +21,19 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // This automatically pulls the code using the Git URL and credentials 
-                // you configured in the Jenkins Job UI.
                 checkout scm
             }
         }
         
         stage('Install Dependencies and Run Tests') {
             steps {
-                sh 'npm install'
-                sh 'npm test'
+                // Hardened approach: Explicitly invoke the NodeJS plugin context
+                script {
+                    nodejs('NodeJS_20') {
+                        sh 'npm install'
+                        sh 'npm test'
+                    }
+                }
             }
         }
         
@@ -114,8 +117,12 @@ pipeline {
             slackSend(channel: "${env.SLACK_CHANNEL}", color: 'danger', message: "🚨 FAILURE: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} failed. Rolled back to previous stable state.\nView: ${env.BUILD_URL}")
         }
         always {
-            cleanWs()
+            // Docker cleanup is safe here
             sh 'docker image prune -f --filter "until=24h"'
+        }
+        cleanup {
+            // Moved to 'cleanup' stage to ensure files exist during rollback blocks
+            cleanWs()
         }
     }
 }
