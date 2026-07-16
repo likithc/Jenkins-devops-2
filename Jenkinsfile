@@ -5,9 +5,8 @@ pipeline {
         APP_NAME = 'task-tracker'
         IMAGE_TAG = "${BUILD_NUMBER}"
         DOCKER_REGISTRY = 'registry.your-private-domain.com'
-        DOCKER_CREDS_ID = 'private-docker-registry-creds'
-        GITHUB_CREDS_ID = 'private-github-creds'
-        GITHUB_REPO_URL = 'git@github.com:your-org/task-tracker.git'
+        DOCKER_CREDS_ID = 'dockerhub'
+        GITHUB_CREDS_ID = 'github'
         SLACK_CHANNEL = '#devops-alerts'
         LAST_SUCCESS_FILE = "/tmp/${APP_NAME}_last_success.txt"
     }
