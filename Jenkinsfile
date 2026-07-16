@@ -7,7 +7,7 @@ pipeline {
         DOCKER_REGISTRY = 'registry.your-private-domain.com' // CHANGE THIS
         DOCKER_CREDS_ID = 'dockerhub'
         GITHUB_CREDS_ID = 'github'
-        GITHUB_REPO_URL = '' // CHANGE THIS
+        GITHUB_REPO_URL = 'git@github.com:likithc/Jenkins-devops-2.git' // CHANGE THIS
         SLACK_CHANNEL = '#devops-alerts'
         LAST_SUCCESS_FILE = "/tmp/${APP_NAME}_last_success.txt"
     }
