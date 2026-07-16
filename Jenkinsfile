@@ -86,18 +86,21 @@ pipeline {
         }
     }
     
-    post {
+   post {
         success {
             script {
                 sh "echo ${env.IMAGE_TAG} > ${env.LAST_SUCCESS_FILE}"
+                try {
+                    slackSend(channel: "${env.SLACK_CHANNEL}", color: 'good', message: "✅ SUCCESS: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} deployed successfully.\nView: ${env.BUILD_URL}")
+                } catch (Exception e) {
+                    echo "Slack notification skipped: Setup credentials in Jenkins to enable alerts."
+                }
             }
-            slackSend(channel: "${env.SLACK_CHANNEL}", color: 'good', message: "✅ SUCCESS: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} deployed successfully.\nView: ${env.BUILD_URL}")
         }
         failure {
             script {
                 echo "Deployment failed. Evaluated stable context initialization..."
                 
-                // Safely checks if a previous successful image tag was saved locally
                 def fileExists = sh(script: "[ -f ${env.LAST_SUCCESS_FILE} ] && echo 'true' || echo 'false'", returnStdout: true).trim()
                 def rollbackTag = "latest"
                 
@@ -119,8 +122,13 @@ pipeline {
                 } catch (Exception e) {
                     echo "Rollback execution halted: No valid historical images are available to pull yet."
                 }
+
+                try {
+                    slackSend(channel: "${env.SLACK_CHANNEL}", color: 'danger', message: "🚨 FAILURE: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} failed.\nView: ${env.BUILD_URL}")
+                } catch (Exception e) {
+                    echo "Slack notification skipped: Setup credentials in Jenkins to enable alerts."
+                }
             }
-            slackSend(channel: "${env.SLACK_CHANNEL}", color: 'danger', message: "🚨 FAILURE: Build #${env.BUILD_NUMBER} of ${env.APP_NAME} failed.\nView: ${env.BUILD_URL}")
         }
         always {
             sh 'docker image prune -f --filter "until=24h"'
@@ -129,4 +137,3 @@ pipeline {
             cleanWs()
         }
     }
-}
