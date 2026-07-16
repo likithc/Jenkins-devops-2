@@ -1,8 +1,7 @@
-version: '3.8'
-
 services:
   task-tracker:
-    image: ${DOCKER_REGISTRY:-localhost:5000}/task-tracker:${IMAGE_TAG:-latest}
+    # This tells docker-compose on the EC2 instance to pull directly from your Docker Hub repo
+    image: ${APP_IMAGE:-likithc/task-tracker}:${IMAGE_TAG:-latest}
     container_name: task-tracker-app
     ports:
       - "3000:3000"
