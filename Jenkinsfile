@@ -4,10 +4,12 @@ pipeline {
     environment {
         APP_NAME = 'task-tracker'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_REGISTRY = 'registry.your-private-domain.com' // CHANGE THIS
+        
+        // Docker Hub Configuration
+        DOCKER_REGISTRY = 'https://index.docker.io/v1/' 
+        APP_IMAGE = "likithc/${APP_NAME}" 
         DOCKER_CREDS_ID = 'dockerhub'
-        GITHUB_CREDS_ID = 'github'
-        GITHUB_REPO_URL = 'git@github.com:likithc/Jenkins-devops-2.git' // CHANGE THIS
+        
         SLACK_CHANNEL = '#devops-alerts'
         LAST_SUCCESS_FILE = "/tmp/${APP_NAME}_last_success.txt"
     }
@@ -17,10 +19,11 @@ pipeline {
     }
     
     stages {
-        stage('SCM Pull') {
+        stage('Checkout') {
             steps {
-                // Fixed: Added env. prefix
-                git branch: 'main', credentialsId: "${env.GITHUB_CREDS_ID}", url: "${env.GITHUB_REPO_URL}"
+                // This automatically pulls the code using the Git URL and credentials 
+                // you configured in the Jenkins Job UI.
+                checkout scm
             }
         }
         
@@ -34,9 +37,8 @@ pipeline {
         stage('Build & Push Docker Image') {
             steps {
                 script {
-                    // Fixed: Added env. prefix
-                    docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
-                        def customImage = docker.build("${env.DOCKER_REGISTRY}/${env.APP_NAME}:${env.IMAGE_TAG}", "--build-arg BUILDKIT_INLINE_CACHE=1 .")
+                    docker.withRegistry("${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
+                        def customImage = docker.build("${env.APP_IMAGE}:${env.IMAGE_TAG}", "--build-arg BUILDKIT_INLINE_CACHE=1 .")
                         customImage.push()
                         customImage.push("latest") 
                     }
@@ -47,10 +49,10 @@ pipeline {
         stage('Deploy') {
             steps {
                 script {
-                    // Fixed: Added env. prefix
-                    docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
+                    docker.withRegistry("${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
                         sh """
-                            export DOCKER_REGISTRY=${env.DOCKER_REGISTRY}
+                            export DOCKER_REGISTRY='' 
+                            export APP_IMAGE=${env.APP_IMAGE}
                             export IMAGE_TAG=${env.IMAGE_TAG}
                             docker-compose down
                             docker-compose up -d
@@ -99,9 +101,10 @@ pipeline {
                 
                 echo "Rolling back to tag: ${prevTag}"
                 
-                docker.withRegistry("https://${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
+                docker.withRegistry("${env.DOCKER_REGISTRY}", "${env.DOCKER_CREDS_ID}") {
                     sh """
-                        export DOCKER_REGISTRY=${env.DOCKER_REGISTRY}
+                        export DOCKER_REGISTRY='' 
+                        export APP_IMAGE=${env.APP_IMAGE}
                         export IMAGE_TAG=${prevTag}
                         docker-compose down
                         docker-compose up -d
