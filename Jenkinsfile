@@ -2,34 +2,24 @@ pipeline {
     agent any
     
     environment {
-        // Application Variables
         APP_NAME = 'task-tracker'
         IMAGE_TAG = "${BUILD_NUMBER}"
-        
-        // Registry & SCM Configurations
         DOCKER_REGISTRY = 'registry.your-private-domain.com'
-        DOCKER_CREDS_ID = 'dockerhub'
+        DOCKER_CREDS_ID = 'private-docker-registry-creds'
         GITHUB_CREDS_ID = 'private-github-creds'
         GITHUB_REPO_URL = 'git@github.com:your-org/task-tracker.git'
-        
-        // Notification Configurations
         SLACK_CHANNEL = '#devops-alerts'
-        
-        // Rollback tracking file (persisted on Jenkins agent/controller)
         LAST_SUCCESS_FILE = "/tmp/${APP_NAME}_last_success.txt"
     }
     
     tools {
-        // Ensures the NodeJS plugin provides 'node' and 'npm' in the PATH
         nodejs 'NodeJS_20' 
     }
     
     stages {
         stage('SCM Pull') {
             steps {
-                git branch: 'main', 
-                    credentialsId: "${GITHUB_CREDS_ID}", 
-                    url: "${GITHUB_REPO_URL}"
+                git branch: 'main', credentialsId: "${GITHUB_CREDS_ID}", url: "${GITHUB_REPO_URL}"
             }
         }
         
@@ -44,10 +34,8 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDS_ID}") {
-                        // Using build-kit and inline caching for optimization
                         def customImage = docker.build("${DOCKER_REGISTRY}/${APP_NAME}:${IMAGE_TAG}", "--build-arg BUILDKIT_INLINE_CACHE=1 .")
                         customImage.push()
-                        // Push latest as well for fallback references
                         customImage.push("latest") 
                     }
                 }
@@ -58,7 +46,6 @@ pipeline {
             steps {
                 script {
                     docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDS_ID}") {
-                        // Export vars for docker-compose interpolation
                         sh """
                             export DOCKER_REGISTRY=${DOCKER_REGISTRY}
                             export IMAGE_TAG=${IMAGE_TAG}
@@ -74,8 +61,6 @@ pipeline {
             steps {
                 script {
                     echo "Waiting for application to become ready..."
-                    
-                    // Readiness wait logic (polls health endpoint until HTTP 200, timeout 60s)
                     sh '''
                         timeout 60 bash -c '
                         while [[ "$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/health)" != "200" ]]; do
@@ -84,9 +69,6 @@ pipeline {
                         done'
                     '''
                     
-                    echo "Application is up. Fetching endpoints:"
-                    
-                    // Verify all 3 endpoints
                     echo "--> Root Endpoint (/)"
                     sh 'curl -s http://localhost:3000/'
                     
@@ -103,14 +85,10 @@ pipeline {
     post {
         success {
             script {
-                // Record the successful build tag for future rollbacks
                 sh "echo ${IMAGE_TAG} > ${LAST_SUCCESS_FILE}"
             }
-            slackSend (
-                channel: "${SLACK_CHANNEL}", 
-                color: 'good', 
-                message: "✅ SUCCESS: Build #${BUILD_NUMBER} of ${APP_NAME} deployed successfully.\nView: ${env.BUILD_URL}"
-            )
+            // Removed the space between slackSend and '('
+            slackSend(channel: "${SLACK_CHANNEL}", color: 'good', message: "✅ SUCCESS: Build #${BUILD_NUMBER} of ${APP_NAME} deployed successfully.\nView: ${env.BUILD_URL}")
         }
         failure {
             script {
@@ -119,7 +97,6 @@ pipeline {
                 
                 echo "Rolling back to tag: ${prevTag}"
                 
-                // Rollback execution
                 docker.withRegistry("https://${DOCKER_REGISTRY}", "${DOCKER_CREDS_ID}") {
                     sh """
                         export DOCKER_REGISTRY=${DOCKER_REGISTRY}
@@ -129,17 +106,10 @@ pipeline {
                     """
                 }
             }
-            slackSend (
-                channel: "${SLACK_CHANNEL}", 
-                color: 'danger', 
-                message: "🚨 FAILURE: Build #${BUILD_NUMBER} of ${APP_NAME} failed. Rolled back to previous stable state.\nView: ${env.BUILD_URL}"
-            )
+            slackSend(channel: "${SLACK_CHANNEL}", color: 'danger', message: "🚨 FAILURE: Build #${BUILD_NUMBER} of ${APP_NAME} failed. Rolled back to previous stable state.\nView: ${env.BUILD_URL}")
         }
         always {
-            // Workspace cleanup
             cleanWs()
-            
-            // Clean up older dangling images to free up space
             sh 'docker image prune -f --filter "until=24h"'
         }
     }
